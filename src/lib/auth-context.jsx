@@ -19,13 +19,18 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (key) => {
-    const valid = await verifyApiKey(key);
-    if (valid) {
-      localStorage.setItem("api_key", key);
-      setApiKey(key);
+    localStorage.setItem("api_key", key);
+    setApiKey(key);
+    const res = await fetch("https://dev.mattr.art/api/verify", {
+      headers: { "X-Auth-Key": key },
+    });
+    const data = await res.json();
+    if (data.valid === true) {
       setIsValid(true);
       return true;
     }
+    localStorage.removeItem("api_key");
+    setApiKey(null);
     setIsValid(false);
     return false;
   };
