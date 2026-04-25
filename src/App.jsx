@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { createUrl, listUrls, deleteUrl, getShortUrl, getUrlData } from "@/lib/api";
-import { Copy, ExternalLink, Trash2, LogOut } from "lucide-react";
+import { Copy, ExternalLink, Trash2, LogOut, RotateCw, Globe, MapPin, Clock, Monitor, Link2 } from "lucide-react";
 
 function LoginPage() {
   const [key, setKey] = useState("");
@@ -62,6 +62,7 @@ function LoginPage() {
 function MainContent() {
   const [urls, setUrls] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [url, setUrl] = useState("");
   const [customId, setCustomId] = useState("");
   const [creating, setCreating] = useState(false);
@@ -74,12 +75,13 @@ function MainContent() {
   useEffect(() => { loadUrls(); }, []);
 
   const loadUrls = async () => {
-    setLoading(true);
+    setRefreshing(true);
     try {
       const data = await listUrls(null, 50);
       setUrls(data.items || []);
     } catch (e) { console.error(e); }
     setLoading(false);
+    setRefreshing(false);
   };
 
   const handleCreate = async (e) => {
@@ -99,7 +101,7 @@ function MainContent() {
   const handleDelete = async (id) => {
     if (!confirm("Delete?")) return;
     await deleteUrl(id);
-    setUrls(urls.filter((u) => u.id !== id));
+    loadUrls();
   };
 
   const openDetails = async (item) => {
@@ -143,20 +145,26 @@ function MainContent() {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Your Links</CardTitle>
-              <Badge variant="secondary" className="ml-2 text-xs font-normal">{urls.length}</Badge>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">Your Links</CardTitle>
+                <Badge variant="secondary" className="ml-2 text-xs font-normal">{urls.length}</Badge>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadUrls} disabled={refreshing} className="gap-2 h-8">
+                <RotateCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[65vh]">
               <Table className="w-full">
-                <TableHeader><TableRow><TableHead className="w-28">ID</TableHead><TableHead>URL</TableHead><TableHead className="text-right w-20">Clicks</TableHead><TableHead className="w-24"></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead className="w-28">ID</TableHead><TableHead>Destination</TableHead><TableHead className="text-right w-20">Clicks</TableHead><TableHead className="w-24"></TableHead></TableRow></TableHeader>
                 <TableBody>
                   {loading ? [...Array(5)].map((_, i) => (<TableRow key={i}><TableCell><Skeleton className="h-8 w-20" /></TableCell><TableCell><Skeleton className="h-8 w-60" /></TableCell><TableCell><Skeleton className="h-8 w-12 ml-auto" /></TableCell><TableCell></TableCell></TableRow>)) :
                   urls.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No links yet</TableCell></TableRow> :
                   urls.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell className="font-mono"><Dialog><DialogTrigger asChild><Button variant="link" className="h-auto p-0 font-mono" onClick={() => openDetails(item)}>{item.id}</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle className="font-mono">{item.id}</DialogTitle><DialogDescription>Click data</DialogDescription></DialogHeader><ScrollArea className="h-64 mt-2 rounded-md border p-3">{detailsLoading ? <Skeleton className="h-20" /> : linkDetails?.clicks?.length ? linkDetails.clicks.map((c, i) => (<div key={i} className="mb-3 pb-3 border-b last:border-0"><div className="font-medium">Click #{i+1}</div><div className="text-sm text-muted-foreground mt-1">{c.IP || 'N/A'} - {c.city ? `${c.city}, ${c.country}` : 'Location unknown'}<br/>{c.timestamp ? new Date(c.timestamp).toLocaleString() : ''}</div></div>)) : <p className="text-center text-muted-foreground py-4">No clicks</p>}</ScrollArea></DialogContent></Dialog></TableCell>
+                      <TableCell className="font-mono"><Dialog><DialogTrigger asChild><Button variant="link" className="h-auto p-0 font-mono" onClick={() => openDetails(item)}>{item.id}</Button></DialogTrigger><DialogContent className="max-w-lg"><DialogHeader><div className="flex items-center justify-between pr-8"><DialogTitle className="font-mono flex items-center gap-2"><Globe className="h-4 w-4" />{item.id}</DialogTitle><Button variant="ghost" size="icon" className="h-8 w-8 ml-auto" onClick={() => openDetails(item)} disabled={detailsLoading}><RotateCw className={`h-4 w-4 ${detailsLoading ? "animate-spin" : ""}`} /></Button></div><DialogDescription className="flex items-center gap-2 mt-1"><Link2 className="h-3.5 w-3.5" />{item.url}</DialogDescription></DialogHeader><div className="space-y-4 mt-2">{detailsLoading ? <Skeleton className="h-24" /> : linkDetails ? (<><div className="flex items-center gap-6 text-sm text-muted-foreground"><div className="flex items-center gap-2"><Monitor className="h-4 w-4" />{linkDetails.totalClicks || 0} clicks</div></div>{linkDetails.clicks?.length ? (<ScrollArea className="h-72 rounded-md border"><div className="p-4 space-y-3">{linkDetails.clicks.map((c, i) => (<div key={i} className="flex items-start justify-between gap-4 pb-3 border-b last:border-0"><div className="space-y-1"><div className="font-medium text-foreground flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-muted-foreground" />{c.timestamp ? new Date(c.timestamp).toLocaleString() : 'Unknown time'}</div><div className="text-sm text-muted-foreground flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />{c.city && c.country ? `${c.city}, ${c.country}` : c.country || 'Unknown location'}</div><div className="text-xs text-muted-foreground/70">{c.IP || c.ip || 'No IP'}</div></div><div className="text-right text-xs text-muted-foreground/70">{c.userAgent ? (c.userAgent.length > 40 ? c.userAgent.slice(0, 40) + "..." : c.userAgent) : 'Unknown browser'}</div></div>))}</div></ScrollArea>) : <p className="text-center text-muted-foreground py-4">No clicks yet</p>}</>) : <p className="text-center text-muted-foreground py-4">Failed to load</p>}</div></DialogContent></Dialog></TableCell>
                       <TableCell className="max-w-[300px] truncate text-muted-foreground">{item.url}</TableCell>
                       <TableCell className="text-right">{item.totalClicks || item.clicks?.length || 0}</TableCell>
                       <TableCell><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(getShortUrl(item.id))}><Copy className="h-4 w-4" /></Button><Button variant="ghost" size="icon" asChild><a href={getShortUrl(item.id)} target="_blank" rel="noopener"><ExternalLink className="h-4 w-4" /></a></Button><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="h-4 w-4" /></Button></div></TableCell>
